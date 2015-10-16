@@ -91,6 +91,10 @@ Using the SQLite3 Database file given to you as the source of data to answer the
 8. Select the name and price of the most expensive show.
 
   Answer: SELECT name, price FROM shows WHERE price = ( SELECT MAX(price) FROM shows );
+    - this would return mutliple shows if there were several with max price
+  or
+
+  SELECT name, price FROM shows ORDER BY price DESC LIMIT 1
 
   Edinburgh Royal Tattoo|32.99
 
@@ -99,12 +103,22 @@ Using the SQLite3 Database file given to you as the source of data to answer the
 
   Answer: SELECT name, price FROM shows WHERE price = (SELECT MIN(price) FROM shows WHERE price > (SELECT MIN(price) FROM shows));
 
+  or
+
+  SELECT name, price FROM shows ORDER BY price ASC LIMIT 1 OFFSET 1;
+
   Best of Burlesque|7.99
 
 
 9. Select the time for the Edinburgh Royal Tattoo.
 
   Answer: SELECT time FROM times WHERE show_id = (SELECT id FROM shows WHERE name = 'Edinburgh Royal Tattoo');
+
+  or
+
+  SELECT time FROM times INNER JOIN shows ON shows.id = times.show_id WHERE name  = 'Edinburgh Royal Tattoo'; 
+
+  SELECT time FROM times AS t INNER JOIN shows AS s ON s.id = t.show_id WHERE s.name  = 'Edinburgh Royal Tattoo';
 
   22:00
 
@@ -128,11 +142,26 @@ Using the SQLite3 Database file given to you as the source of data to answer the
 13. Select the number of users who want to see "Shitfaced Shakespeare".
 
   Answer: SELECT count(user_id) FROM shows_users WHERE show_id = ( SELECT id FROM shows WHERE name = 'Shitfaced Shakespeare' );
+  
+  or
 
+  SELECT count(su.id) FROM shows_users su JOIN shows s ON su.show_id = s.id WHERE s.name = 'Shitfaced Shakespeare';
+
+  7
 
 14. Select all of the user names and the count of shows they're going to see.
 
   Answer: SELECT users.name, COUNT(shows_users.show_id) FROM users INNER JOIN shows_users ON users.id=shows_users.user_id GROUP BY name;
+
+  or
+
+  SELECT users.name, COUNT(shows_users.show_id) FROM users INNER JOIN shows_users ON users.id=shows_users.user_id GROUP BY users.id;
+  (better to group by users.id - less ambiguous)
+
+  or
+
+  SELECT u.name, count(su.show_id) FROM users u LEFT JOIN shows_users su ON su.user_id = u.id GROUP BY u.id;
+  (this version is correct - includes users going to 0 shows thanks to LEFT JOIN)
 
   Alaere Samuel|6
   Chae Cramb|4
@@ -155,7 +184,11 @@ Using the SQLite3 Database file given to you as the source of data to answer the
 
 15. SELECT all users who are going to a show at 17:15.
 
-  Answer: SELECT name FROM users WHERE id in ( SELECT user_id FROM shows_users WHERE show_id in (SELECT show_id FROM times WHERE time = '17:15'));
+  Answer: SELECT name FROM users WHERE id IN ( SELECT user_id FROM shows_users WHERE show_id IN (SELECT show_id FROM times WHERE time = '17:15'));
+
+  or (by joining 3 tables)
+
+  SELECT DISTINCT u.name FROM users u JOIN shows_users su ON u.id = su.user_id JOIN times t ON su.show_id = t.show_id WHERE t.time = '17:15';
 
   Rick Henri
   Sandy McMillan
@@ -184,6 +217,9 @@ Using the SQLite3 Database file given to you as the source of data to answer the
 
   Answer: INSERT INTO shows_users (user_id, show_id) SELECT (SELECT id FROM users WHERE name = 'Antonio Goncalves') AS user_id, (SELECT id FROM shows WHERE name = 'Two girls, one cup of comedy');
 
+  or (only place you would use nested queries:)
+
+  INSERT INTO shows_users (user_id, show_id) SELECT ((SELECT id FROM users WHERE name = 'Antonio Goncalves'), (SELECT id FROM shows WHERE name = 'Two girls, one cup of comedy'));
 
 19. Updates the name of the "Antonio Goncalves" user to be "Tony Goncalves".
 
